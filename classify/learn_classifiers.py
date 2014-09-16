@@ -109,25 +109,25 @@ def evaluate(data_split, model_file, d, rnn_feats=True, bow_feats=False, rel_fea
                 except:
                     continue
 
-                forward_prop(params, tree, d, labels=False)
-
-                # features: average of hidden representations and average of word embeddings
-                for ex, node in enumerate(tree.get_nodes()):
-
-                    if node.word not in stop:
-                        ave += node.p_norm
-                        words += node.vec
-                        count += 1.
-
-                if count > 0:
-                    curr_ave = ave / count
-                    curr_words = words / count
-
-                featvec = concatenate([curr_ave.flatten(), curr_words.flatten()])
                 curr_feats = {}
-
-                # add QANTA's features to the current feature set
                 if rnn_feats:
+                    forward_prop(params, tree, d, labels=False)
+
+                    # features: average of hidden representations and average of word embeddings
+                    for ex, node in enumerate(tree.get_nodes()):
+
+                        if node.word not in stop:
+                            ave += node.p_norm
+                            words += node.vec
+                            count += 1.
+
+                    if count > 0:
+                        curr_ave = ave / count
+                        curr_words = words / count
+
+                    featvec = concatenate([curr_ave.flatten(), curr_words.flatten()])
+
+                    # add QANTA's features to the current feature set
                     for dim, val in ndenumerate(featvec):
                         curr_feats['__' + str(dim)] = val
 

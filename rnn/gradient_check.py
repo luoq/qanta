@@ -20,4 +20,4 @@ def gradient_check(obj_and_grad, obj, dim, f_args):
         f_args[1] = params + curr_param
         part_cost = obj(*f_args)
         num_grad[i] = (part_cost - cost) / mean
-        print i, ' actual: ', num_grad[i], ' mine: ', actual_grad[i]
+        print i, ' actual: ', num_grad[i], ' mine: ', actual_grad[i], 'diff', num_grad[i]- actual_grad[i]
