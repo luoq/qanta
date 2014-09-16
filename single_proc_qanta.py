@@ -11,7 +11,7 @@ import cPickle
 
 # does forward propagation and computes error, no backprop
 # useful for gradient check
-def objective(data, params, d, len_voc, rel_list, lambdas):
+def objective(rng, data, params, d, len_voc, rel_list, lambdas):
 
     params = unroll_params(params, d, len_voc, rel_list)
 
@@ -29,7 +29,7 @@ def objective(data, params, d, len_voc, rel_list, lambdas):
 
         tree.ans_vec = L[:, tree.ans_ind].reshape( (d, 1))
 
-        forward_prop(params, tree, d)
+        forward_prop(rng, params, tree, d)
         error_sum += tree.error()
         tree_size += len(nodes)
 
@@ -47,7 +47,7 @@ def objective(data, params, d, len_voc, rel_list, lambdas):
 
 
 # does both forward and backprop
-def objective_and_grad(data, params, d, len_voc, rel_list, lambdas):
+def objective_and_grad(rng, data, params, d, len_voc, rel_list, lambdas):
 
     params = unroll_params(params, d, len_voc, rel_list)
     grads = init_dtrnn_grads(rel_list, d, len_voc)
@@ -66,7 +66,7 @@ def objective_and_grad(data, params, d, len_voc, rel_list, lambdas):
 
         tree.ans_vec = L[:, tree.ans_ind].reshape( (d, 1))
 
-        forward_prop(params, tree, d)
+        forward_prop(rng, params, tree, d)
         error_sum += tree.error()
         tree_size += len(nodes)
 
@@ -101,6 +101,8 @@ if __name__ == '__main__':
 
     # word embedding dimension
     d = 5
+
+    rng = random.RandomState(0)
 
     # regularization lambdas: [lambda_W, lambda_L]
     lambdas = [1e-4, 1e-3]
@@ -139,9 +141,9 @@ if __name__ == '__main__':
     print rel_list
 
     # generate params / We
-    params = gen_dtrnn_params(d, rel_list)
+    params = gen_dtrnn_params(rng, d, rel_list)
     rel_list = params[0].keys()
-    orig_We = gen_rand_we(len(vocab), d)
+    orig_We = gen_rand_we(rng, len(vocab), d)
 
     # add We matrix to params
     params += (orig_We, )
@@ -160,4 +162,4 @@ if __name__ == '__main__':
 
     # check gradient
     f_args = [trees, r, d, len(vocab), rel_list, lambdas]
-    gradient_check(objective_and_grad, objective, dim, f_args)
+    gradient_check(objective_and_grad, objective, dim, f_args, rng)

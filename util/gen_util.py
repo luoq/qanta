@@ -36,7 +36,7 @@ def roll_params(params, rel_list):
 
 
 # randomly initialize all parameters
-def gen_dtrnn_params(d, rels):
+def gen_dtrnn_params(rng, d, rels):
 	"""
 	Returns (dict{rels:[mat]}, Wv, b)
 	"""
@@ -44,11 +44,11 @@ def gen_dtrnn_params(d, rels):
 	r = sqrt(6) / sqrt(201)
 	rel_dict = {}
 	for rel in rels:
-		rel_dict[rel] = random.rand(d, d) * 2 * r - r
+		rel_dict[rel] = rng.rand(d, d) * 2 * r - r
 
 	return (
 		rel_dict,
-		random.rand(d, d) * 2 * r - r,
+		rng.rand(d, d) * 2 * r - r,
 		zeros((d, 1))
 	)
 
@@ -69,7 +69,7 @@ def init_dtrnn_grads(rel_list, d, len_voc):
 
 
 # random embedding matrix for gradient checks
-def gen_rand_we(len_voc, d):
+def gen_rand_we(rng, len_voc, d):
 	r = sqrt(6) / sqrt(51)
-	we = random.rand(d, len_voc) * 2 * r - r
+	we = rng.rand(d, len_voc) * 2 * r - r
 	return we

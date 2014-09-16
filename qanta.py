@@ -230,7 +230,7 @@ if __name__ == '__main__':
         tree.ans_list = ans_list[ans_list != tree.ans_ind]
 
     # generate params / We
-    params = gen_dtrnn_params(args['d'], rel_list)
+    params = gen_dtrnn_params(main_rng, args['d'], rel_list)
     rel_list = params[0].keys()
 
     # add We matrix to params
