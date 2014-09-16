@@ -111,7 +111,7 @@ def evaluate(data_split, model_file, d, rnn_feats=True, bow_feats=False, rel_fea
 
                 curr_feats = {}
                 if rnn_feats:
-                    forward_prop(params, tree, d, labels=False)
+                    forward_prop(None, params, tree, d, labels=False)
 
                     # features: average of hidden representations and average of word embeddings
                     for ex, node in enumerate(tree.get_nodes()):
@@ -219,7 +219,7 @@ def validate(data, params, d):
         for num_finished, tree in enumerate(split):
 
             # process validation trees
-            forward_prop(params, tree, d, labels=False)
+            forward_prop(None, params, tree, d, labels=False)
 
             ave = zeros( (d, 1))
             words = zeros ( (d, 1))
