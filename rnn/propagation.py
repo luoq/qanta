@@ -1,12 +1,11 @@
 from numpy import *
 from util.math_util import *
-import random
 
 # - QANTA's forward propagation. the labels argument indicates whether
 #   you want to compute errors and deltas at each node or not. for training,
 #   you obviously want those computations to occur, but during testing they
 #   unnecessarily slow down feature computation
-def forward_prop(params, tree, d, labels=True):
+def forward_prop(rng, params, tree, d, labels=True):
 
     tree.reset_finished()
 
@@ -17,7 +16,7 @@ def forward_prop(params, tree, d, labels=True):
     # - wrong_ans is 100 randomly sampled wrong answers for the objective function
     # - only need wrong answers when computing error
     if labels:
-        random.shuffle(tree.ans_list)
+        rng.shuffle(tree.ans_list)
         wrong_ans = [We[:, ind] for ind in tree.ans_list[0:100]]
 
     # forward prop

@@ -8,21 +8,37 @@ from classify.learn_classifiers import validate
 import cPickle, time, argparse
 from multiprocessing import Pool
 
+def split_range_by_n_chunk(start, end, n_chunk):
+    N = end-start
+    n = N // n_chunk
+    r = N % n_chunk
+    
+    j=0 
+    i=start
+    while i<end:
+        if j < r:
+            length = n +1
+        else:
+            length = n 
+        yield i, i+length
+        i += length
+        j += 1
 
 # splits the training data into minibatches
 # multi-core parallelization
-def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
+def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas, rngs):
     pool = Pool(processes=num_proc) 
 
     # non-data params
     oparams = [params, d, len_voc, rel_list]
     
-    # chunk size
-    n = len(data) / num_proc
-    split_data = [data[i:i+n] for i in range(0, len(data), n)]
+    split_data = []
+    for start,end in split_range_by_n_chunk(0, len(data), num_proc):
+        split_data.append(data[start:end])
+
     to_map = []
-    for item in split_data:
-        to_map.append( (oparams, item) )
+    for rng, item in zip(rngs, split_data):
+        to_map.append( (rng, oparams, item) )
         
     result = pool.map(objective_and_grad, to_map)
     pool.close()   # no more processes accepted by this pool    
@@ -32,7 +48,10 @@ def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
     all_nodes = 0.0
     total_grad = None
     
-    for (err, grad, num_nodes) in result:
+    rngs = []
+    for (rng, err, grad, num_nodes) in result:
+        rngs.append(rng)
+        
         total_err += err
 
         if total_grad is None:
@@ -67,14 +86,15 @@ def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
     cost = total_err / all_nodes + reg_cost
     grad = roll_params(grads, rel_list)
 
-    return cost, grad
+    return rngs, cost, grad
 
 
 # this function computes the objective / grad for each minibatch
 def objective_and_grad(par_data):
 
-    params, d, len_voc, rel_list = par_data[0]
-    data = par_data[1]
+    rng = par_data[0]
+    params, d, len_voc, rel_list = par_data[1]
+    data = par_data[2]
     params = unroll_params(params, d, len_voc, rel_list)
     grads = init_dtrnn_grads(rel_list, d, len_voc)
 
@@ -94,14 +114,14 @@ def objective_and_grad(par_data):
 
         tree.ans_vec = L[:, tree.ans_ind].reshape( (d, 1))
 
-        prop.forward_prop(params, tree, d)
+        prop.forward_prop(rng, params, tree, d)
         error_sum += tree.error()
         tree_size += len(nodes)
 
         prop.backprop(params[:-1], tree, d, len_voc, grads)
 
     grad = roll_params(grads, rel_list)
-    return (error_sum, grad, tree_size)
+    return (rng, error_sum, grad, tree_size)
 
 
 # train qanta and save model
@@ -113,8 +133,9 @@ if __name__ == '__main__':
     parser.add_argument('-data', help='location of dataset', default='data/hist_split')
     parser.add_argument('-We', help='location of word embeddings', default='data/hist_We')
     parser.add_argument('-d', help='word embedding dimension', type=int, default=100)
+    parser.add_argument('-s', '--seed', help='seed for rng', type=int, default=0)
     parser.add_argument('-np', '--num_proc', help='number of cores to parallelize over', type=int, \
-                        default=6)
+                        default=4)
     parser.add_argument('-lW', '--lambda_W', help='regularization weight for composition matrices', \
                         type=float, default=0.)
     parser.add_argument('-lWe', '--lambda_We', help='regularization weight for word embeddings', \
@@ -132,6 +153,14 @@ if __name__ == '__main__':
                          default='models/hist_params')
 
     args = vars(parser.parse_args())
+
+    seed = args['seed']
+    main_rng = random.RandomState(seed)
+    if args['num_proc']<=1000:
+        randint1000 = main_rng.randint(0,1000000,1000)
+        sub_rngs = [random.RandomState(s) for s in randint1000[:args['num_proc']]]
+    else:
+        sub_rngs = [random.RandomState(s) for s in main_rng.randint(0,1000000,args['num_proc'])]
     
 
     ## load data
@@ -160,8 +189,8 @@ if __name__ == '__main__':
     lambdas = [args['lambda_W'], args['lambda_We']]
 
     # output log and parameter file destinations
-    param_file = args['output']
-    log_file = param_file.split('_')[0] + '_log'
+    param_file = args['output']+'_'+str(seed)
+    log_file = param_file.split('_')[0] + '_log' + '_'+str(seed)
 
     print 'number of training sentences:', len(train_trees)
     print 'number of validation sentences:', len(val_trees)
@@ -225,15 +254,15 @@ if __name__ == '__main__':
             lstring = ''
 
             # create mini-batches
-            random.shuffle(tdata)
+            main_rng.shuffle(tdata)
             batches = [tdata[x : x + args['batch_size']] for x in xrange(0, len(tdata), 
                        args['batch_size'])]
 
             epoch_error = 0.0
             for batch_ind, batch in enumerate(batches):
                 now = time.time()
-                err, grad = par_objective(args['num_proc'], batch, r, args['d'], len(vocab), \
-                                          rel_list, lambdas)
+                sub_rngs, err, grad = par_objective(args['num_proc'], batch, r, args['d'], len(vocab), \
+                                          rel_list, lambdas, sub_rngs)
                 update = ag.rescale_update(grad)
                 r = r - update
                 lstring = 'epoch: ' + str(epoch) + ' batch_ind: ' + str(batch_ind) + \
